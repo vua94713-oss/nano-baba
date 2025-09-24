@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleGenAI, Modality } from "@google/genai";
@@ -104,6 +103,65 @@ const Loader = () => (
     <p className="text-slate-600">Đang xử lý...</p>
   </div>
 );
+
+// --- API Key Input Component ---
+const ApiKeyForm = ({ onSubmit }) => {
+    const [key, setKey] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!key.trim()) {
+            setError('Vui lòng nhập API Key của bạn.');
+            return;
+        }
+        setLoading(true);
+        setError('');
+        const success = await onSubmit(key);
+        if (!success) {
+            setError('API Key không hợp lệ hoặc đã xảy ra lỗi. Vui lòng kiểm tra lại.');
+            setLoading(false);
+        }
+        // On success, the component will be unmounted, so no need to reset loading state.
+    };
+
+    return (
+        <div className="bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-6 mb-8 rounded-r-lg shadow-md">
+            <h3 className="font-bold text-xl mb-2">Yêu cầu cấu hình API Key</h3>
+            <p className="mb-4">
+                Để sử dụng ứng dụng, vui lòng nhập Google AI API Key của bạn vào ô bên dưới.
+                Bạn có thể lấy key tại{' '}
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-amber-900">
+                    Google AI Studio
+                </a>.
+            </p>
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row items-start gap-2">
+                <div className="w-full">
+                    <input
+                        type="password"
+                        value={key}
+                        onChange={(e) => setKey(e.target.value)}
+                        placeholder="Dán API Key của bạn vào đây"
+                        className="w-full px-3 py-2 text-slate-800 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                        aria-label="Google AI API Key"
+                    />
+                    {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+                </div>
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full sm:w-auto bg-yellow-500 text-white font-bold py-2 px-6 rounded-md hover:bg-yellow-600 disabled:bg-slate-400 disabled:cursor-not-allowed transition whitespace-nowrap"
+                >
+                    {loading ? 'Đang kiểm tra...' : 'Lưu & Bắt đầu'}
+                </button>
+            </form>
+            <p className="text-xs mt-3 text-slate-500">
+                Key của bạn chỉ được lưu trong phiên truy cập này trên trình duyệt của bạn và không được gửi đi bất cứ đâu ngoài Google AI.
+            </p>
+        </div>
+    );
+};
 
 // --- Reusable Components ---
 const Modal = ({ children = null, onClose, title }) => (
@@ -523,31 +581,40 @@ const App = () => {
   const [creationCount, setCreationCount] = useState(0);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [ai, setAi] = useState(null);
-  const [isApiConfigured, setIsApiConfigured] = useState(true);
+  const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // API key must be in process.env.API_KEY
-    if (!process.env.API_KEY) {
-      setIsApiConfigured(false);
-      setIsLoading(false);
-      return;
+    // API key can be in process.env.API_KEY
+    if (process.env.API_KEY) {
+      try {
+        const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        setAi(genAI);
+        setApiKey(process.env.API_KEY);
+      } catch (e) {
+        console.error("Lỗi khởi tạo GoogleGenAI từ biến môi trường:", e);
+        // Let the user input manually if env var is invalid
+      }
     }
-    try {
-      const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      setAi(genAI);
-    } catch (e) {
-      console.error("Lỗi khởi tạo GoogleGenAI:", e);
-      // Even if key is present, init can fail (e.g. invalid format). Treat as config error.
-      setIsApiConfigured(false);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(false);
   }, []);
+  
+  const handleApiKeySubmit = async (key) => {
+    try {
+      const genAI = new GoogleGenAI({ apiKey: key });
+      setAi(genAI);
+      setApiKey(key);
+      return true;
+    } catch (e) {
+      console.error('Lỗi khi thiết lập API key:', e);
+      setAi(null);
+      setApiKey('');
+      return false;
+    }
+  };
 
   const handleSelectFeature = (feature) => {
-    // Safeguard, clicks should be disabled via CSS if not configured
-    if (!isApiConfigured) return;
+    if (!ai) return;
     setActiveFeature(feature);
   };
   
@@ -564,14 +631,14 @@ const App = () => {
   };
   
   const renderModal = () => {
-    if (!activeFeature || !isApiConfigured) return null;
+    if (!activeFeature || !ai) return null;
 
     const props = { 
         onClose: handleCloseModal, 
         title: activeFeature.title,
         onSuccess: handleCreationSuccess,
         ai: ai,
-        apiKey: process.env.API_KEY,
+        apiKey: apiKey,
     };
 
     switch (activeFeature.type) {
@@ -600,24 +667,8 @@ const App = () => {
     <div className="min-h-screen">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        {!isApiConfigured && (
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-md" role="alert">
-                <p className="font-bold text-lg">Lỗi Cấu hình: Không thể sử dụng API Key</p>
-                <p className="mt-2">Ứng dụng không thể khởi tạo với API Key được cung cấp. Vui lòng kiểm tra kỹ các điểm sau:</p>
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>
-                        <strong>Triển khai lại (Redeploy):</strong> Sau khi cập nhật API Key trên Cloudflare, bạn có chắc chắn đã <strong>triển khai lại</strong> ứng dụng không? Đây là bước <span className="font-semibold">bắt buộc</span>.
-                    </li>
-                    <li>
-                        <strong>Giá trị API Key:</strong> Key bạn dán vào có chính xác hoàn toàn không? Hãy thử tạo một key mới trên <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="font-semibold text-red-800 underline hover:text-red-900">Google AI Studio</a> và dán lại.
-                    </li>
-                    <li>
-                        <strong>Tên biến:</strong> Tên biến môi trường phải là <code>API_KEY</code> (chính xác, viết hoa).
-                    </li>
-                </ul>
-            </div>
-        )}
-        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${!isApiConfigured ? 'opacity-50 pointer-events-none' : ''}`}>
+        {!ai && <ApiKeyForm onSubmit={handleApiKeySubmit} />}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${!ai ? 'opacity-50 pointer-events-none' : ''}`}>
           {features.map(feature => (
             <FeatureCard key={feature.id} feature={feature} onSelect={handleSelectFeature} />
           ))}
