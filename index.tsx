@@ -601,9 +601,20 @@ const App = () => {
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         {!isApiConfigured && (
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
-                <p className="font-bold">Lỗi Cấu hình: API Key không hợp lệ hoặc không được cung cấp</p>
-                <p>Để sử dụng ứng dụng, vui lòng đặt biến môi trường <code>API_KEY</code> trong môi trường triển khai của bạn.</p>
+            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-md" role="alert">
+                <p className="font-bold text-lg">Lỗi Cấu hình: Không thể sử dụng API Key</p>
+                <p className="mt-2">Ứng dụng không thể khởi tạo với API Key được cung cấp. Vui lòng kiểm tra kỹ các điểm sau:</p>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>
+                        <strong>Triển khai lại (Redeploy):</strong> Sau khi cập nhật API Key trên Cloudflare, bạn có chắc chắn đã <strong>triển khai lại</strong> ứng dụng không? Đây là bước <span className="font-semibold">bắt buộc</span>.
+                    </li>
+                    <li>
+                        <strong>Giá trị API Key:</strong> Key bạn dán vào có chính xác hoàn toàn không? Hãy thử tạo một key mới trên <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="font-semibold text-red-800 underline hover:text-red-900">Google AI Studio</a> và dán lại.
+                    </li>
+                    <li>
+                        <strong>Tên biến:</strong> Tên biến môi trường phải là <code>API_KEY</code> (chính xác, viết hoa).
+                    </li>
+                </ul>
             </div>
         )}
         <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${!isApiConfigured ? 'opacity-50 pointer-events-none' : ''}`}>
