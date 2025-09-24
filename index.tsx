@@ -523,12 +523,14 @@ const App = () => {
   const [creationCount, setCreationCount] = useState(0);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [ai, setAi] = useState(null);
-  const [error, setError] = useState('');
+  const [isApiConfigured, setIsApiConfigured] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // API key must be in process.env.API_KEY
     if (!process.env.API_KEY) {
-      setError("Chưa cấu hình API Key. Vui lòng đặt biến môi trường API_KEY.");
+      setIsApiConfigured(false);
+      setIsLoading(false);
       return;
     }
     try {
@@ -536,11 +538,16 @@ const App = () => {
       setAi(genAI);
     } catch (e) {
       console.error("Lỗi khởi tạo GoogleGenAI:", e);
-      setError("Không thể khởi tạo dịch vụ AI. Vui lòng kiểm tra API Key.");
+      // Even if key is present, init can fail (e.g. invalid format). Treat as config error.
+      setIsApiConfigured(false);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   const handleSelectFeature = (feature) => {
+    // Safeguard, clicks should be disabled via CSS if not configured
+    if (!isApiConfigured) return;
     setActiveFeature(feature);
   };
   
@@ -557,7 +564,7 @@ const App = () => {
   };
   
   const renderModal = () => {
-    if (!activeFeature) return null;
+    if (!activeFeature || !isApiConfigured) return null;
 
     const props = { 
         onClose: handleCloseModal, 
@@ -581,18 +588,7 @@ const App = () => {
     }
   };
   
-  if (error) {
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-red-50 text-red-700 p-4">
-            <div className="text-center">
-                <h2 className="text-2xl font-bold mb-2">Lỗi Cấu hình</h2>
-                <p>{error}</p>
-            </div>
-        </div>
-    );
-  }
-
-  if (!ai) {
+  if (isLoading) {
     return (
         <div className="min-h-screen flex items-center justify-center">
             <Loader />
@@ -604,7 +600,13 @@ const App = () => {
     <div className="min-h-screen">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {!isApiConfigured && (
+            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+                <p className="font-bold">Lỗi Cấu hình: API Key không hợp lệ hoặc không được cung cấp</p>
+                <p>Để sử dụng ứng dụng, vui lòng đặt biến môi trường <code>API_KEY</code> trong môi trường triển khai của bạn.</p>
+            </div>
+        )}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${!isApiConfigured ? 'opacity-50 pointer-events-none' : ''}`}>
           {features.map(feature => (
             <FeatureCard key={feature.id} feature={feature} onSelect={handleSelectFeature} />
           ))}
