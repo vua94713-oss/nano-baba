@@ -243,8 +243,9 @@ const ImageGenerateModal = ({ onClose, title, onSuccess, ai }) => {
             setImage(`data:image/jpeg;base64,${base64ImageBytes}`);
             onSuccess();
         } catch (e) {
-            console.error(e);
-            setError('Đã xảy ra lỗi khi tạo ảnh. Vui lòng thử lại.');
+            console.error("Lỗi tạo ảnh:", e);
+            const detailedMessage = e instanceof Error ? e.message : 'Lỗi không xác định.';
+            setError(`Đã xảy ra lỗi khi tạo ảnh. Chi tiết: ${detailedMessage}. Vui lòng kiểm tra lại API Key và thử lại.`);
         } finally {
             setLoading(false);
         }
@@ -267,7 +268,7 @@ const ImageGenerateModal = ({ onClose, title, onSuccess, ai }) => {
                 >
                     {loading ? 'Đang tạo...' : 'Tạo ảnh'}
                 </button>
-                {error && <p className="text-red-500">{error}</p>}
+                {error && <p className="text-red-500 break-words">{error}</p>}
                 {loading && <Loader />}
                 {image && (
                     <div className="mt-4 p-4 border rounded-lg bg-slate-50">
@@ -311,17 +312,21 @@ const ImageEditModal = ({ onClose, title, onSuccess, ai }) => {
                 config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
             });
             
-            const imageResponsePart = response.candidates[0].content.parts.find(part => part.inlineData);
-            if (imageResponsePart) {
+            const imageResponsePart = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
+            const textResponsePart = response.candidates?.[0]?.content?.parts?.find(part => part.text);
+
+            if (imageResponsePart?.inlineData) {
                 const { data, mimeType } = imageResponsePart.inlineData;
                 setEditedImage(`data:${mimeType};base64,${data}`);
                 onSuccess();
             } else {
-                 setError('Không thể tạo ảnh đã chỉnh sửa. Hãy thử một lời nhắc khác.');
+                 const reason = textResponsePart ? `Phản hồi từ AI: "${textResponsePart.text}"` : 'Hãy thử một lời nhắc khác hoặc kiểm tra lại ảnh đầu vào.';
+                 setError(`Không thể tạo ảnh đã chỉnh sửa. ${reason}`);
             }
         } catch (e) {
-            console.error(e);
-            setError('Đã xảy ra lỗi khi chỉnh sửa ảnh. Vui lòng thử lại.');
+            console.error("Lỗi chỉnh sửa ảnh:", e);
+            const detailedMessage = e instanceof Error ? e.message : 'Lỗi không xác định.';
+            setError(`Đã xảy ra lỗi khi chỉnh sửa ảnh. Chi tiết: ${detailedMessage}. Vui lòng kiểm tra lại API Key và thử lại.`);
         } finally {
             setLoading(false);
         }
@@ -351,7 +356,7 @@ const ImageEditModal = ({ onClose, title, onSuccess, ai }) => {
                 >
                     {loading ? 'Đang chỉnh sửa...' : 'Chỉnh sửa'}
                 </button>
-                {error && <p className="text-red-500">{error}</p>}
+                {error && <p className="text-red-500 break-words">{error}</p>}
                 {loading && <Loader />}
                 {editedImage && (
                     <div className="mt-6">
@@ -399,8 +404,9 @@ const CharacterCreatorModal = ({ onClose, title, onSuccess, ai }) => {
             setImage(`data:image/jpeg;base64,${base64ImageBytes}`);
             onSuccess();
         } catch (e) {
-            console.error(e);
-            setError('Đã xảy ra lỗi khi tạo nhân vật. Vui lòng thử lại.');
+            console.error("Lỗi tạo nhân vật:", e);
+            const detailedMessage = e instanceof Error ? e.message : 'Lỗi không xác định.';
+            setError(`Đã xảy ra lỗi khi tạo nhân vật. Chi tiết: ${detailedMessage}. Vui lòng kiểm tra lại API Key và thử lại.`);
         } finally {
             setLoading(false);
         }
@@ -423,7 +429,7 @@ const CharacterCreatorModal = ({ onClose, title, onSuccess, ai }) => {
                 >
                     {loading ? 'Đang tạo...' : 'Tạo nhân vật'}
                 </button>
-                {error && <p className="text-red-500">{error}</p>}
+                {error && <p className="text-red-500 break-words">{error}</p>}
                 {loading && <Loader />}
                 {image && (
                     <div className="mt-4 p-4 border rounded-lg bg-slate-50">
@@ -512,7 +518,7 @@ const ManualApiModal = ({ onClose, title, apiKey, onSuccess }) => {
                 >
                     {loading ? 'Đang gửi...' : 'Gửi Yêu cầu'}
                 </button>
-                {error && <p className="text-red-500 text-sm">{error}</p>}
+                {error && <p className="text-red-500 text-sm break-words">{error}</p>}
                 {loading && <Loader />}
                 {responseBody && (
                     <div className="mt-4">
@@ -602,6 +608,8 @@ const App = () => {
   const handleApiKeySubmit = async (key) => {
     try {
       const genAI = new GoogleGenAI({ apiKey: key });
+      // Quick test call to validate the key with a harmless query
+      await genAI.models.generateContent({model: 'gemini-2.5-flash', contents: 'hi'});
       setAi(genAI);
       setApiKey(key);
       return true;
